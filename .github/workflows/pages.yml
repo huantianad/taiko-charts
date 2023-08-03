@@ -1,0 +1,57 @@
+name: Build GitHub Pages Site
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "main"
+
+jobs:
+  zip-and-generate-listing:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Zip charts
+        run: |
+          mkdir "$RUNNER_TEMP/output"
+          for category in */; do
+            mkdir "$RUNNER_TEMP/output/$category"
+            cd "$category"
+            for song in */; do
+              cd "$song"
+              zip -r "$RUNNER_TEMP/output/$category/${song%/}.zip" *
+              cd ..
+            done
+            cd ..
+          done
+
+      - name: Generate Directory Listings
+        uses: jayanta525/github-pages-directory-listing@v3.0.0
+        with:
+          FOLDER: '${{ runner.temp }}/output' 
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v2
+        with:
+          path: '${{ runner.temp }}/output'
+
+  deploy:
+    needs: zip-and-generate-listing
+    permissions:
+      pages: write      # to deploy to Pages
+      id-token: write   # to verify the deployment originates from an appropriate source
+
+    # Deploy to the github-pages environment
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    # Specify runner + deployment step
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v2
+
